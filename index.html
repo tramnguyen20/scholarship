@@ -1,164 +1,40 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Hệ thống kiểm tra danh sách học bổng - UEL</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      overflow-x: auto;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #e8f0fe, #ffffff);
-    }
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 40px;
-      background-color: #004080;
-      color: white;
-    }
-    .top-bar .title {
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .avatar {
-      width: 40px;
-      height: 40px;
-      background-color: white;
-      color: #004080;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .upload-box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-      max-width: 1200px;
-      margin: 40px auto;
-      text-align: center;
-      overflow-x: auto;
-    }
-    h2, #dynamic-title {
-      color: #004080;
-      white-space: normal;
-    }
-    input[type="file"] {
-      margin-top: 20px;
-      padding: 10px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 24px;
-      background-color: #004080;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    button:hover {
-      background-color: #0066cc;
-    }
-    #status {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    table {
-      margin-top: 25px;
-      min-width: 1000px;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-      white-space: nowrap;
-    }
-    th {
-      background-color: #f0f8ff;
-    }
-  </style>
-</head>
-<body>
-  <div class="top-bar">
-    <div class="title">Hệ thống học bổng - UEL</div>
-    <div class="avatar" title="Tài khoản hiện tại">TD</div>
-  </div>
-
-  <div class="upload-box">
-    <h2>Hệ thống kiểm tra danh sách học bổng - UEL</h2>
-    <form id="uploadForm">
-      <input type="file" id="fileInput" accept=".xlsx,.xls" />
-      <br/>
-      <button type="button" onclick="handleFile()">Tải lên</button>
+<input type="text" placeholder="Loại học bổng" id="loai">
+      <input type="number" placeholder="Số tiền học bổng" id="st">
+      <button type="button" onclick="addRow()">Thêm</button>
     </form>
     <p id="status"></p>
-    <h3 id="dynamic-title"></h3>
-    <div id="table-container"></div>
+    <h3 id="dynamic-title">Kết quả học bổng</h3>
+    <div id="table-container">
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>MSSV</th><th>Họ</th><th>Tên</th><th>Lớp</th><th>Điểm học tập</th><th>Điểm rèn luyện</th><th>Số tín chỉ</th><th>Chứng chỉ ngoại ngữ</th><th>Học phí</th><th>Loại học bổng</th><th>Số tiền học bổng</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
-    function handleFile() {
-      const fileInput = document.getElementById('fileInput');
-      const status = document.getElementById('status');
-      const title = document.getElementById('dynamic-title');
-      const tableContainer = document.getElementById('table-container');
-
-      if (!fileInput.files.length) {
-        status.textContent = "Vui lòng chọn tệp Excel để tải lên.";
-        status.style.color = "red";
+    function addRow() {
+      const get = id => document.getElementById(id).value;
+      const values = [get('mssv'), get('ho'), get('ten'), get('lop'), get('dht'), get('drl'), get('tc'), get('ccnn'), get('hp'), get('loai'), get('st')];
+      if (values.some(v => v === '')) {
+        document.getElementById('status').textContent = 'Vui lòng điền đầy đủ thông tin!';
+        document.getElementById('status').style.color = 'red';
         return;
       }
-
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-
-      const fileName = file.name;
-      const lowerFileName = fileName.toLowerCase();
-      const match = lowerFileName.match(/hk(?:_|\s)*(\d)(?:_|\s)*(\d{4})(\d{4})/);
-
-      if (match) {
-        const hk = match[1];
-        const nam1 = match[2];
-        const nam2 = match[3];
-        title.textContent = `Kết quả học bổng học kỳ ${hk} năm học ${nam1}-${nam2}`;
-      } else {
-        title.textContent = `Kết quả học bổng từ tệp: ${file.name}`;
-      }
-
-      reader.onload = function (e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        if (json.length === 0) {
-          tableContainer.innerHTML = '<p>Không tìm thấy dữ liệu trong tệp Excel.</p>';
-          return;
-        }
-
-        let html = '<table>';
-        json.forEach((row, i) => {
-          html += '<tr>' + row.map(cell => `<${i === 0 ? 'th' : 'td'}>${cell ?? ''}</${i === 0 ? 'th' : 'td'}>`).join('') + '</tr>';
-        });
-        html += '</table>';
-
-        tableContainer.innerHTML = html;
-        status.textContent = `Đã tải tệp "${file.name}" thành công!`;
-        status.style.color = "green";
-      };
-
-      reader.readAsArrayBuffer(file);
+      const tr = document.createElement('tr');
+      values.forEach(val => {
+        const td = document.createElement('td');
+        td.textContent = val;
+        tr.appendChild(td);
+      });
+      document.querySelector('#data-table tbody').appendChild(tr);
+      document.getElementById('status').textContent = 'Đã thêm dòng thành công!';
+      document.getElementById('status').style.color = 'green';
+      document.getElementById('inputForm').reset();
     }
   </script>
 </body>
